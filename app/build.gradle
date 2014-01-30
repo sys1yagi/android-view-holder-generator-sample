@@ -60,7 +60,7 @@ ext.generateViewHolders = { xmlFiles ->
         def layout = xmlParser.parse(layoutXml)
         def walk;
 
-        JMethod fromMethod = vhClass.method(JMod.STATIC + JMod.PUBLIC, vhClass, "from")
+        JMethod fromMethod = vhClass.method(JMod.STATIC | JMod.PUBLIC, vhClass, "from")
         JVar viewParam = fromMethod.param(model.ref("android.view.View"), "rootView");
         JBlock block = fromMethod.body();
         JVar holder = block.decl(vhClass, "holder", JExpr._new(vhClass))
