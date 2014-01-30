@@ -1,0 +1,102 @@
+apply plugin: 'android'
+
+android {
+    compileSdkVersion 19
+    buildToolsVersion "19.0.1"
+
+    defaultConfig {
+        minSdkVersion 7
+        targetSdkVersion 19
+        versionCode 1
+        versionName "1.0"
+    }
+    buildTypes {
+        release {
+            runProguard false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.txt'
+        }
+    }
+    sourceSets {
+        main.java.srcDirs += '.gen'
+    }
+}
+
+dependencies {
+    compile 'com.android.support:appcompat-v7:+'
+}
+
+import java.awt.image.BufferedImage
+import java.awt.Color
+import javax.imageio.ImageIO
+import com.sun.codemodel.JCodeModel
+import com.sun.codemodel.JMethod
+import com.sun.codemodel.JBlock
+import com.sun.codemodel.JMod
+import com.sun.codemodel.JVar
+import com.sun.codemodel.JExpr
+import com.sun.codemodel.JClass
+
+String camerize(String snakeCased) {
+    def first = snakeCased.substring(0, 1)
+    def rest = snakeCased.substring(1)
+    return first.toUpperCase() + rest.toLowerCase()
+}
+
+manifestXml = new XmlSlurper().parse(file("src/main/AndroidManifest.xml"))
+ext.generateViewHolders = { xmlFiles ->
+    // TODO: remove exists
+
+    def pkg = manifestXml.'@package'.toString()
+    xmlFiles.each { File layoutXml ->
+        def simpleName = layoutXml.getName().split('\\.')[0]
+        def className = simpleName.split('_').collect { String part ->
+            camerize(part)
+        }.join('') + "ViewHolder"
+        println("Generating ${className}.java from $layoutXml")
+
+        def model = new JCodeModel()
+        def vhClass = model._class(pkg + ".generated.viewholder.$className")
+
+        def androidNs = new groovy.xml.Namespace("http://schemas.android.com/apk/res/android",
+                "android")
+        def xmlParser = new XmlParser()
+        def layout = xmlParser.parse(layoutXml)
+        def walk;
+
+        JMethod fromMethod = vhClass.method(JMod.STATIC + JMod.PUBLIC, vhClass, "from")
+        JVar viewParam = fromMethod.param(model.ref("android.view.View"), "rootView");
+        JBlock block = fromMethod.body();
+        JVar holder = block.decl(vhClass, "holder", JExpr._new(vhClass))
+
+        walk = { element ->
+            def widgetId = element.attribute(androidNs.get("id"))
+            if (widgetId != null) {
+                def parts = widgetId.split('/')
+
+                //TODO resolve custom package
+                JClass type = model.ref("android.widget.${element.name()}")
+                vhClass.field(JMod.PUBLIC, type, parts[1])
+
+                block.assign(holder.ref(parts[1]),
+                        JExpr.cast(type,
+                        viewParam.invoke("findViewById").
+                                arg(model.ref(pkg + ".R.id").staticRef(parts[1]))));
+
+            }
+
+            element.children().each { walk(it) }
+        }
+
+        walk(layout)
+
+        block._return(holder);
+
+        def javaSourceDir = file("src/main/java")
+        javaSourceDir.mkdirs()
+        model.build(javaSourceDir)
+    }
+}
+
+preBuild.dependsOn(task("generateViewHolders") << {
+    generateViewHolders(fileTree(dir: "src/main", include: "res/layout/*.xml"))
+})
