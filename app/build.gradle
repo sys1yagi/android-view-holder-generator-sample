@@ -68,16 +68,18 @@ ext.generateViewHolders = { xmlFiles ->
         walk = { element ->
             def widgetId = element.attribute(androidNs.get("id"))
             if (widgetId != null) {
-                def parts = widgetId.split('/')
+                def parts = widgetId.split('/') // like '@id+/name'
+                def id = parts[1]
 
-                //TODO resolve custom package
-                JClass type = model.ref("android.widget.${element.name()}")
-                vhClass.field(JMod.PUBLIC, type, parts[1])
+                JClass type = model.ref(element.name().contains(".")
+                    ? element.name() // fully qualified
+                    : "android.widget.${element.name()}" )
+                vhClass.field(JMod.PUBLIC, type, id)
 
-                block.assign(holder.ref(parts[1]),
+                block.assign(holder.ref(id),
                         JExpr.cast(type,
                         viewParam.invoke("findViewById").
-                                arg(model.ref(pkg + ".R.id").staticRef(parts[1]))));
+                                arg(model.ref(pkg + ".R.id").staticRef(id))));
 
             }
 
