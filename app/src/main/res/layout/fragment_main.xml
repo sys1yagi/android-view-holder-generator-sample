@@ -17,7 +17,7 @@
                 android:layout_height="wrap_content"
                 android:layout_toLeftOf="@+id/icon"/>
 
-        <TextView
+        <com.example.app.MyTextView
                 android:id="@+id/sub"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
