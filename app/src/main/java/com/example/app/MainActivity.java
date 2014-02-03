@@ -14,15 +14,10 @@ import android.view.View;
 import android.view.ViewGroup;
 
 public class MainActivity extends ActionBarActivity {
-
-    ActivityMainViewHolder mHolder;
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-
-        mHolder = ActivityMainViewHolder.from(findViewById(android.R.id.content));
 
         if (savedInstanceState == null) {
             getSupportFragmentManager().beginTransaction()
@@ -62,9 +57,8 @@ public class MainActivity extends ActionBarActivity {
         @Override
         public View onCreateView(LayoutInflater inflater, ViewGroup container,
                 Bundle savedInstanceState) {
-            View rootView = inflater.inflate(R.layout.fragment_main, container, false);
-            mViewHolder = FragmentMainViewHolder.from(rootView);
-            return rootView;
+            mViewHolder = FragmentMainViewHolder.from(getActivity(), container);
+            return mViewHolder.view;
         }
 
         @Override

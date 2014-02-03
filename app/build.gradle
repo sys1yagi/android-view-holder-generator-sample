@@ -31,6 +31,18 @@ String camerize(String snakeCased) {
     return first.toUpperCase() + rest.toLowerCase()
 }
 
+String qualifyViewClassName(String name) {
+    if (name.contains(".")) { // already fully-qualified
+        return name
+    }
+    else if (name == "View") {
+        return "anndroid.view.$name"
+    }
+    else {
+        return "android.widget.$name"
+    }
+}
+
 ext.generateViewHolders = { xmlFiles ->
     def manifestXml = new XmlSlurper().parse(file("src/main/AndroidManifest.xml"))
 
@@ -49,30 +61,36 @@ ext.generateViewHolders = { xmlFiles ->
                 "android")
         def xmlParser = new XmlParser()
         def layout = xmlParser.parse(layoutXml)
-        def walk;
 
+        vhClass.field(JMod.PUBLIC, model.ref(qualifyViewClassName(layout.name())), "view")
+
+        // ViewHolder.from(Context context, View rootView)
         JMethod fromMethod = vhClass.method(JMod.STATIC | JMod.PUBLIC, vhClass, "from")
-        JVar viewParam = fromMethod.param(model.ref("android.view.View"), "rootView");
+        JVar context = fromMethod.param(model.ref("android.content.Context"), "context")
+        JVar rootView = fromMethod.param(model.ref("android.view.ViewGroup"), "rootView")
 
         JBlock block = fromMethod.body();
-        // ViewHolder holder = rootView.getTag() != null ? (ViewHolder)rootView.getTag() :
         JVar holder = block.decl(vhClass, "holder", JExpr._new(vhClass))
 
+        JFieldRef resId = model.ref("${pkg}.R.layout").staticRef(simpleName)
+        JInvocation inflateExpr = model.ref("android.view.View").staticInvoke("inflate").arg(context).arg(resId).arg(rootView)
+        JVar view = block.decl(model.ref("android.view.View"), "view", inflateExpr)
+
+        Closure<Void> walk
         walk = { Node element ->
             def widgetId = element.attribute(androidNs.get("id"))
             if (widgetId != null) {
                 def parts = widgetId.split('/') // like '@id+/name'
                 def id = parts[1]
 
-                JClass type = model.ref(element.name().contains(".")
-                    ? element.name() // fully qualified
-                    : "android.widget.${element.name()}" )
+                JClass type = model.ref(qualifyViewClassName(element.name()))
                 vhClass.field(JMod.PUBLIC, type, id)
 
+                // holder = (T)findViewById
                 block.assign(holder.ref(id),
                         JExpr.cast(type,
-                        viewParam.invoke("findViewById").
-                                arg(model.ref(pkg + ".R.id").staticRef(id))));
+                        view.invoke("findViewById").
+                                arg(model.ref(pkg + ".R.id").staticRef(id))))
 
             }
 

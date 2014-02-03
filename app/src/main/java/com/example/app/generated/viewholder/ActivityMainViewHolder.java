@@ -1,17 +1,20 @@
 
 package com.example.app.generated.viewholder;
 
-import android.view.View;
-import android.widget.FrameLayout;
+import android.content.Context;
+import android.view.ViewGroup;
 import com.example.app.R.id;
+import com.example.app.R.layout;
 
 public class ActivityMainViewHolder {
 
-    public FrameLayout container;
+    public android.widget.FrameLayout view;
+    public android.widget.FrameLayout container;
 
-    public static ActivityMainViewHolder from(View rootView) {
+    public static ActivityMainViewHolder from(Context context, ViewGroup rootView) {
         ActivityMainViewHolder holder = new ActivityMainViewHolder();
-        holder.container = ((FrameLayout) rootView.findViewById(id.container));
+        android.view.View view = android.view.View.inflate(context, layout.activity_main, rootView);
+        holder.container = ((android.widget.FrameLayout) view.findViewById(id.container));
         return holder;
     }
 
