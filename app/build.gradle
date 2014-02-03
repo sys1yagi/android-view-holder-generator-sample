@@ -22,16 +22,8 @@ dependencies {
     compile 'com.android.support:appcompat-v7:+'
 }
 
-import java.awt.image.BufferedImage
-import java.awt.Color
-import javax.imageio.ImageIO
-import com.sun.codemodel.JCodeModel
-import com.sun.codemodel.JMethod
-import com.sun.codemodel.JBlock
-import com.sun.codemodel.JMod
-import com.sun.codemodel.JVar
-import com.sun.codemodel.JExpr
-import com.sun.codemodel.JClass
+import com.sun.codemodel.*
+import groovy.xml.*
 
 String camerize(String snakeCased) {
     def first = snakeCased.substring(0, 1)
@@ -39,9 +31,8 @@ String camerize(String snakeCased) {
     return first.toUpperCase() + rest.toLowerCase()
 }
 
-manifestXml = new XmlSlurper().parse(file("src/main/AndroidManifest.xml"))
 ext.generateViewHolders = { xmlFiles ->
-    // TODO: remove exists
+    def manifestXml = new XmlSlurper().parse(file("src/main/AndroidManifest.xml"))
 
     def pkg = manifestXml.'@package'.toString()
     xmlFiles.each { File layoutXml ->
@@ -54,7 +45,7 @@ ext.generateViewHolders = { xmlFiles ->
         def model = new JCodeModel()
         def vhClass = model._class(pkg + ".generated.viewholder.$className")
 
-        def androidNs = new groovy.xml.Namespace("http://schemas.android.com/apk/res/android",
+        def androidNs = new Namespace("http://schemas.android.com/apk/res/android",
                 "android")
         def xmlParser = new XmlParser()
         def layout = xmlParser.parse(layoutXml)
@@ -62,10 +53,12 @@ ext.generateViewHolders = { xmlFiles ->
 
         JMethod fromMethod = vhClass.method(JMod.STATIC | JMod.PUBLIC, vhClass, "from")
         JVar viewParam = fromMethod.param(model.ref("android.view.View"), "rootView");
+
         JBlock block = fromMethod.body();
+        // ViewHolder holder = rootView.getTag() != null ? (ViewHolder)rootView.getTag() :
         JVar holder = block.decl(vhClass, "holder", JExpr._new(vhClass))
 
-        walk = { element ->
+        walk = { Node element ->
             def widgetId = element.attribute(androidNs.get("id"))
             if (widgetId != null) {
                 def parts = widgetId.split('/') // like '@id+/name'
