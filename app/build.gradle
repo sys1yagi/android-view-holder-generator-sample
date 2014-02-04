@@ -51,6 +51,9 @@ ext.generateViewHolders = { xmlFiles ->
         "android")
     def xmlParser = new XmlParser()
 
+    def javaSourceDir = file("src/main/java")
+    javaSourceDir.mkdirs()
+
     xmlFiles.each { File layoutXml ->
         def simpleName = layoutXml.getName().split('\\.')[0]
         def className = simpleName.split('_').collect { String part ->
@@ -63,19 +66,42 @@ ext.generateViewHolders = { xmlFiles ->
 
         def layout = xmlParser.parse(layoutXml)
 
-        vhClass.field(JMod.PUBLIC, model.ref(qualifyViewClassName(layout.name())), "view")
+        def rootViewType = model.ref(qualifyViewClassName(layout.name()))
+        vhClass.field(JMod.PUBLIC | JMod.FINAL, rootViewType, "view")
 
-        // ViewHolder.from(Context context, View rootView)
-        JMethod fromMethod = vhClass.method(JMod.STATIC | JMod.PUBLIC, vhClass, "from")
-        JVar context = fromMethod.param(model.ref("android.content.Context"), "context")
-        JVar rootView = fromMethod.param(model.ref("android.view.ViewGroup"), "rootView")
+        def contextType = model.ref("android.content.Context")
+        def viewType = model.ref("android.view.View")
+        def viewGroupType = model.ref("android.view.ViewGroup")
 
-        JBlock block = fromMethod.body();
-        JVar holder = block.decl(vhClass, "holder", JExpr._new(vhClass))
+        // ViewHolder.from(Context context, ViewGroup rootView)
+        ({
+            JMethod from2 = vhClass.method(JMod.PUBLIC | JMod.STATIC, vhClass, "from")
+            JVar context =  from2.param(contextType, "context")
+            JVar viewGroup =  from2.param(viewGroupType, "viewGroup")
 
-        JFieldRef resId = model.ref("${pkg}.R.layout").staticRef(simpleName)
-        JInvocation inflateExpr = model.ref("android.view.View").staticInvoke("inflate").arg(context).arg(resId).arg(rootView)
-        JVar view = block.decl(model.ref("android.view.View"), "view", inflateExpr)
+            JBlock body = from2.body()
+            JFieldRef resId = model.ref("${pkg}.R.layout").staticRef(simpleName)
+            JInvocation inflateExpr = viewType.staticInvoke("inflate").arg(context).arg(resId).arg(viewGroup)
+            JVar rootView = body.decl(rootViewType, "rootView", JExpr.cast(rootViewType, inflateExpr))
+            JVar holder = body.decl(vhClass, "holder", JExpr._new(vhClass).arg(rootView))
+            body._return(holder)
+        })()
+
+        // ViewHolder.from(Context context, View convertView, ViewGroup rootView)
+        ({
+            JMethod from3 = vhClass.method(JMod.PUBLIC | JMod.STATIC, vhClass, "from")
+
+            JBlock body = from3.body()
+            JVar holder = body.decl(vhClass, "holder", JExpr._null())
+            body._return(holder)
+        })()
+
+        // ViewHolder(View rootView)
+        JMethod ctr = vhClass.constructor(JMod.PUBLIC)
+        JVar rootView =  ctr.param(rootViewType, "rootView")
+
+        JBlock body =  ctr.body();
+        body.assign(JExpr._this().ref("view"), rootView)
 
         Closure<Void> walk
         walk = { Node element ->
@@ -84,14 +110,12 @@ ext.generateViewHolders = { xmlFiles ->
                 def parts = widgetId.split('/') // like '@id+/name'
                 def id = parts[1]
 
-                JClass type = model.ref(qualifyViewClassName(element.name()))
-                vhClass.field(JMod.PUBLIC, type, id)
+                JClass elementType = model.ref(qualifyViewClassName(element.name()))
+                vhClass.field(JMod.PUBLIC | JMod.FINAL, elementType, id)
 
                 // holder = (T)findViewById
-                block.assign(holder.ref(id),
-                        JExpr.cast(type,
-                        view.invoke("findViewById").
-                                arg(model.ref(pkg + ".R.id").staticRef(id))))
+                JInvocation findViewById = rootView.invoke("findViewById").arg(model.ref(pkg + ".R.id").staticRef(id))
+                body.assign(JExpr._this().ref(id), JExpr.cast(elementType, findViewById))
 
             }
 
@@ -100,10 +124,6 @@ ext.generateViewHolders = { xmlFiles ->
 
         walk(layout)
 
-        block._return(holder);
-
-        def javaSourceDir = file("src/main/java")
-        javaSourceDir.mkdirs()
         model.build(javaSourceDir)
     }
 }

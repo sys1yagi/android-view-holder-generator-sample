@@ -2,6 +2,7 @@
 package com.example.app.generated.viewholder;
 
 import android.content.Context;
+import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
@@ -11,17 +12,26 @@ import com.example.app.R.layout;
 
 public class FragmentMainViewHolder {
 
-    public LinearLayout view;
-    public TextView title;
-    public MyTextView sub;
-    public ImageView icon;
+    public final LinearLayout view;
+    public final TextView title;
+    public final MyTextView sub;
+    public final ImageView icon;
 
-    public static FragmentMainViewHolder from(Context context, ViewGroup rootView) {
-        FragmentMainViewHolder holder = new FragmentMainViewHolder();
-        android.view.View view = android.view.View.inflate(context, layout.fragment_main, rootView);
-        holder.title = ((TextView) view.findViewById(com.example.app.R.id.title));
-        holder.sub = ((MyTextView) view.findViewById(com.example.app.R.id.sub));
-        holder.icon = ((ImageView) view.findViewById(com.example.app.R.id.icon));
+    public FragmentMainViewHolder(LinearLayout rootView) {
+        this.view = rootView;
+        this.title = ((TextView) rootView.findViewById(com.example.app.R.id.title));
+        this.sub = ((MyTextView) rootView.findViewById(com.example.app.R.id.sub));
+        this.icon = ((ImageView) rootView.findViewById(com.example.app.R.id.icon));
+    }
+
+    public static FragmentMainViewHolder from(Context context, ViewGroup viewGroup) {
+        LinearLayout rootView = ((LinearLayout) View.inflate(context, layout.fragment_main, viewGroup));
+        FragmentMainViewHolder holder = new FragmentMainViewHolder(rootView);
+        return holder;
+    }
+
+    public static FragmentMainViewHolder from() {
+        FragmentMainViewHolder holder = null;
         return holder;
     }
 
