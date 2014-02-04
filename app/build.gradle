@@ -47,6 +47,10 @@ ext.generateViewHolders = { xmlFiles ->
     def manifestXml = new XmlSlurper().parse(file("src/main/AndroidManifest.xml"))
 
     def pkg = manifestXml.'@package'.toString()
+    def androidNs = new Namespace("http://schemas.android.com/apk/res/android",
+        "android")
+    def xmlParser = new XmlParser()
+
     xmlFiles.each { File layoutXml ->
         def simpleName = layoutXml.getName().split('\\.')[0]
         def className = simpleName.split('_').collect { String part ->
@@ -57,9 +61,6 @@ ext.generateViewHolders = { xmlFiles ->
         def model = new JCodeModel()
         def vhClass = model._class(pkg + ".generated.viewholder.$className")
 
-        def androidNs = new Namespace("http://schemas.android.com/apk/res/android",
-                "android")
-        def xmlParser = new XmlParser()
         def layout = xmlParser.parse(layoutXml)
 
         vhClass.field(JMod.PUBLIC, model.ref(qualifyViewClassName(layout.name())), "view")
