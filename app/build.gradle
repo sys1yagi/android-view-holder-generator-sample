@@ -53,6 +53,7 @@ ext.generateViewHolders = { xmlFiles ->
 
     def javaSourceDir = file("src/main/java")
     javaSourceDir.mkdirs()
+    def model = new JCodeModel()
 
     xmlFiles.each { File layoutXml ->
         def simpleName = layoutXml.getName().split('\\.')[0]
@@ -61,7 +62,6 @@ ext.generateViewHolders = { xmlFiles ->
         }.join('') + "ViewHolder"
         println("Generating ${className}.java from $layoutXml")
 
-        def model = new JCodeModel()
         def vhClass = model._class(pkg + ".generated.viewholder.$className")
 
         def layout = xmlParser.parse(layoutXml)
@@ -113,7 +113,7 @@ ext.generateViewHolders = { xmlFiles ->
                 JClass elementType = model.ref(qualifyViewClassName(element.name()))
                 vhClass.field(JMod.PUBLIC | JMod.FINAL, elementType, id)
 
-                // holder = (T)findViewById
+                // holder = (T)findViewById(R.id.name)
                 JInvocation findViewById = rootView.invoke("findViewById").arg(model.ref(pkg + ".R.id").staticRef(id))
                 body.assign(JExpr._this().ref(id), JExpr.cast(elementType, findViewById))
 
@@ -123,9 +123,9 @@ ext.generateViewHolders = { xmlFiles ->
         }
 
         walk(layout)
-
-        model.build(javaSourceDir)
     }
+
+    model.build(javaSourceDir)
 }
 
 preBuild.dependsOn(task("generateViewHolders") << {
