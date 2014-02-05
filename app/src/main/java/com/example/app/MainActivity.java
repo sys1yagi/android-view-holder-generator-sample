@@ -57,7 +57,7 @@ public class MainActivity extends ActionBarActivity {
         @Override
         public View onCreateView(LayoutInflater inflater, ViewGroup container,
                 Bundle savedInstanceState) {
-            mViewHolder = FragmentMainViewHolder.from(getActivity(), container);
+            mViewHolder = FragmentMainViewHolder.from(getActivity(), null);
             return mViewHolder.view;
         }
 

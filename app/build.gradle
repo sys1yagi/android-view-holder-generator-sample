@@ -34,12 +34,18 @@ String camerize(String snakeCased) {
 String qualifyViewClassName(String name) {
     if (name.contains(".")) { // already fully-qualified
         return name
-    }
-    else if (name == "View") {
-        return "anndroid.view.$name"
-    }
-    else {
+    } else if (name == "View") {
+        return "android.view.$name"
+    } else {
         return "android.widget.$name"
+    }
+}
+
+JExpression castIfNeeded(JType expectedType, JType exprType, JExpression expr) {
+    if (expectedType == exprType) {
+        return expr
+    } else {
+        return JExpr.cast(expectedType, expr)
     }
 }
 
@@ -55,6 +61,11 @@ ext.generateViewHolders = { xmlFiles ->
     javaSourceDir.mkdirs()
     def model = new JCodeModel()
 
+    def contextType = model.ref("android.content.Context")
+    def viewType = model.ref("android.view.View")
+    def viewGroupType = model.ref("android.view.ViewGroup")
+    def inflaterType = model.ref("android.view.LayoutInflater")
+
     xmlFiles.each { File layoutXml ->
         def simpleName = layoutXml.getName().split('\\.')[0]
         def className = simpleName.split('_').collect { String part ->
@@ -62,45 +73,48 @@ ext.generateViewHolders = { xmlFiles ->
         }.join('') + "ViewHolder"
         println("Generating ${className}.java from $layoutXml")
 
-        def vhClass = model._class(pkg + ".generated.viewholder.$className")
+        def vhClass = model._class(JMod.PUBLIC | JMod.FINAL, pkg + ".generated.viewholder.$className", ClassType.CLASS)
 
         def layout = xmlParser.parse(layoutXml)
 
         def rootViewType = model.ref(qualifyViewClassName(layout.name()))
-        vhClass.field(JMod.PUBLIC | JMod.FINAL, rootViewType, "view")
 
-        def contextType = model.ref("android.content.Context")
-        def viewType = model.ref("android.view.View")
-        def viewGroupType = model.ref("android.view.ViewGroup")
+        vhClass.field(JMod.PUBLIC | JMod.FINAL, viewType, "view")
 
         // ViewHolder.from(Context context, ViewGroup rootView)
         ({
-            JMethod from2 = vhClass.method(JMod.PUBLIC | JMod.STATIC, vhClass, "from")
-            JVar context =  from2.param(contextType, "context")
-            JVar viewGroup =  from2.param(viewGroupType, "viewGroup")
+            JMethod from = vhClass.method(JMod.PUBLIC | JMod.STATIC, vhClass, "from")
+            JVar context = from.param(contextType, "context")
+            JVar viewGroup = from.param(viewGroupType, "viewGroup")
 
-            JBlock body = from2.body()
+            JBlock body = from.body()
             JFieldRef resId = model.ref("${pkg}.R.layout").staticRef(simpleName)
-            JInvocation inflateExpr = viewType.staticInvoke("inflate").arg(context).arg(resId).arg(viewGroup)
-            JVar rootView = body.decl(rootViewType, "rootView", JExpr.cast(rootViewType, inflateExpr))
+            JVar inflater = body.decl(inflaterType, "inflater", inflaterType.staticInvoke("from").arg(context))
+            JInvocation inflateExpr = inflater.invoke("inflate").arg(resId).arg(viewGroup).arg(JExpr.FALSE)
+            JVar rootView = body.decl(viewType, "rootView", inflateExpr)
             JVar holder = body.decl(vhClass, "holder", JExpr._new(vhClass).arg(rootView))
+            body.add(rootView.invoke("setTag").arg(holder)) // rootView.setTag(holder)
             body._return(holder)
         })()
 
         // ViewHolder.from(Context context, View convertView, ViewGroup rootView)
         ({
-            JMethod from3 = vhClass.method(JMod.PUBLIC | JMod.STATIC, vhClass, "from")
+            JMethod from = vhClass.method(JMod.PUBLIC | JMod.STATIC, vhClass, "from")
+            JVar context = from.param(contextType, "context")
+            JVar convertView = from.param(viewType, "convertView")
+            JVar viewGroup = from.param(viewGroupType, "viewGroup")
 
-            JBlock body = from3.body()
-            JVar holder = body.decl(vhClass, "holder", JExpr._null())
-            body._return(holder)
+            JBlock body = from.body()
+            JConditional cond = body._if(convertView.eq(JExpr._null()))
+            cond._then()._return(vhClass.staticInvoke("from").arg(context).arg(viewGroup))
+            cond._else()._return(JExpr.cast(vhClass, convertView.invoke("getTag")))
         })()
 
         // ViewHolder(View rootView)
         JMethod ctr = vhClass.constructor(JMod.PUBLIC)
-        JVar rootView =  ctr.param(rootViewType, "rootView")
+        JVar rootView = ctr.param(viewType, "rootView")
 
-        JBlock body =  ctr.body();
+        JBlock body = ctr.body();
         body.assign(JExpr._this().ref("view"), rootView)
 
         Closure<Void> walk
@@ -108,14 +122,15 @@ ext.generateViewHolders = { xmlFiles ->
             def widgetId = element.attribute(androidNs.get("id"))
             if (widgetId != null) {
                 def parts = widgetId.split('/') // like '@id+/name'
-                def id = parts[1]
+                def name = parts[1]
+                def resClass = model.ref(parts[0] == "@android:id" ? "android.R.id" : "${pkg}.R.id")
 
                 JClass elementType = model.ref(qualifyViewClassName(element.name()))
-                vhClass.field(JMod.PUBLIC | JMod.FINAL, elementType, id)
+                vhClass.field(JMod.PUBLIC | JMod.FINAL, elementType, name)
 
                 // holder = (T)findViewById(R.id.name)
-                JInvocation findViewById = rootView.invoke("findViewById").arg(model.ref(pkg + ".R.id").staticRef(id))
-                body.assign(JExpr._this().ref(id), JExpr.cast(elementType, findViewById))
+                JInvocation findViewById = rootView.invoke("findViewById").arg(resClass.staticRef(name))
+                body.assign(JExpr._this().ref(name), castIfNeeded(elementType, viewType, findViewById))
 
             }
 

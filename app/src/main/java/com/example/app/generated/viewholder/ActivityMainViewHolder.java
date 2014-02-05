@@ -2,30 +2,37 @@
 package com.example.app.generated.viewholder;
 
 import android.content.Context;
+import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.FrameLayout;
 import com.example.app.R.id;
 import com.example.app.R.layout;
 
-public class ActivityMainViewHolder {
+public final class ActivityMainViewHolder {
 
-    public final android.widget.FrameLayout view;
-    public final android.widget.FrameLayout container;
+    public final View view;
+    public final FrameLayout container;
 
-    public ActivityMainViewHolder(android.widget.FrameLayout rootView) {
+    public ActivityMainViewHolder(View rootView) {
         this.view = rootView;
-        this.container = ((android.widget.FrameLayout) rootView.findViewById(id.container));
+        this.container = ((FrameLayout) rootView.findViewById(id.container));
     }
 
     public static ActivityMainViewHolder from(Context context, ViewGroup viewGroup) {
-        android.widget.FrameLayout rootView = ((android.widget.FrameLayout) View.inflate(context, layout.activity_main, viewGroup));
+        LayoutInflater inflater = LayoutInflater.from(context);
+        View rootView = inflater.inflate(layout.activity_main, viewGroup, false);
         ActivityMainViewHolder holder = new ActivityMainViewHolder(rootView);
+        rootView.setTag(holder);
         return holder;
     }
 
-    public static ActivityMainViewHolder from() {
-        ActivityMainViewHolder holder = null;
-        return holder;
+    public static ActivityMainViewHolder from(Context context, View convertView, ViewGroup viewGroup) {
+        if (convertView == null) {
+            return ActivityMainViewHolder.from(context, viewGroup);
+        } else {
+            return ((ActivityMainViewHolder) convertView.getTag());
+        }
     }
 
 }
