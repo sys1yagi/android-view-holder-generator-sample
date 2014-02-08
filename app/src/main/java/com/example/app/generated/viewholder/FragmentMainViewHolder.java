@@ -9,6 +9,11 @@ import android.widget.TextView;
 import com.example.app.MyTextView;
 import com.example.app.R.layout;
 
+
+/**
+ * Auto-generated ViewHolder class which represents fragment_main.xml.
+ * 
+ */
 public final class FragmentMainViewHolder {
 
     public final android.view.View view;
@@ -25,6 +30,10 @@ public final class FragmentMainViewHolder {
         this.empty = rootView.findViewById(android.R.id.empty);
     }
 
+    /**
+     * Creates a viewholder, inflates fragment_main.xml, and binds the view object to the viewholder.
+     * 
+     */
     public static FragmentMainViewHolder from(Context context, ViewGroup viewGroup) {
         LayoutInflater inflater = LayoutInflater.from(context);
         android.view.View rootView = inflater.inflate(layout.fragment_main, viewGroup, false);
@@ -33,6 +42,10 @@ public final class FragmentMainViewHolder {
         return holder;
     }
 
+    /**
+     * Same as <code>.from(context, viewGroup)</code> method but does nothing if <code>convertView</code> is supplied. It is designed to use in <code>ListAdapter#getView()</code>.
+     * 
+     */
     public static FragmentMainViewHolder from(Context context, android.view.View convertView, ViewGroup viewGroup) {
         if (convertView == null) {
             return FragmentMainViewHolder.from(context, viewGroup);

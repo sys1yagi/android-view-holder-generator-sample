@@ -7,6 +7,7 @@ buildscript {
     dependencies {
         classpath 'com.android.tools.build:gradle:0.8.+'
         classpath 'com.sun.codemodel:codemodel:2.6'
+        classpath project(':plugin')
     }
 }
 

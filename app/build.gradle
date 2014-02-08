@@ -1,4 +1,9 @@
 apply plugin: 'android'
+apply plugin: com.cookpad.android.ViewHolderGeneratorPlugin
+
+dependencies {
+    compile 'com.android.support:appcompat-v7:+'
+}
 
 android {
     compileSdkVersion 19
@@ -7,6 +12,7 @@ android {
     defaultConfig {
         minSdkVersion 7
         targetSdkVersion 19
+
         versionCode 1
         versionName "1.0"
     }
@@ -16,133 +22,9 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.txt'
         }
     }
-}
-
-dependencies {
-    compile 'com.android.support:appcompat-v7:+'
-}
-
-import com.sun.codemodel.*
-import groovy.xml.*
-
-String camerize(String snakeCased) {
-    def first = snakeCased.substring(0, 1)
-    def rest = snakeCased.substring(1)
-    return first.toUpperCase() + rest.toLowerCase()
-}
-
-String qualifyViewClassName(String name) {
-    if (name.contains(".")) { // already fully-qualified
-        return name
-    } else if (name == "View") {
-        return "android.view.$name"
-    } else {
-        return "android.widget.$name"
+    productFlavors {
+        production {}
+        staging {}
     }
 }
 
-JExpression castIfNeeded(JType expectedType, JType exprType, JExpression expr) {
-    if (expectedType == exprType) {
-        return expr
-    } else {
-        return JExpr.cast(expectedType, expr)
-    }
-}
-
-ext.generateViewHolders = { xmlFiles ->
-    def manifestXml = new XmlSlurper().parse(file("src/main/AndroidManifest.xml"))
-
-    def pkg = manifestXml.'@package'.toString()
-    def androidNs = new Namespace("http://schemas.android.com/apk/res/android",
-        "android")
-    def xmlParser = new XmlParser()
-
-    def javaSourceDir = file("src/main/java")
-    javaSourceDir.mkdirs()
-    def model = new JCodeModel()
-
-    def contextType = model.ref("android.content.Context")
-    def viewType = model.ref("android.view.View")
-    def viewGroupType = model.ref("android.view.ViewGroup")
-    def inflaterType = model.ref("android.view.LayoutInflater")
-
-    xmlFiles.each { File layoutXml ->
-        def simpleName = layoutXml.getName().split('\\.')[0]
-        def className = simpleName.split('_').collect { String part ->
-            camerize(part)
-        }.join('') + "ViewHolder"
-        println("Generating ${className}.java from $layoutXml")
-
-        def vhClass = model._class(JMod.PUBLIC | JMod.FINAL, pkg + ".generated.viewholder.$className", ClassType.CLASS)
-
-        def layout = xmlParser.parse(layoutXml)
-
-        def rootViewType = model.ref(qualifyViewClassName(layout.name()))
-
-        vhClass.field(JMod.PUBLIC | JMod.FINAL, viewType, "view")
-
-        // ViewHolder.from(Context context, ViewGroup rootView)
-        ({
-            JMethod from = vhClass.method(JMod.PUBLIC | JMod.STATIC, vhClass, "from")
-            JVar context = from.param(contextType, "context")
-            JVar viewGroup = from.param(viewGroupType, "viewGroup")
-
-            JBlock body = from.body()
-            JFieldRef resId = model.ref("${pkg}.R.layout").staticRef(simpleName)
-            JVar inflater = body.decl(inflaterType, "inflater", inflaterType.staticInvoke("from").arg(context))
-            JInvocation inflateExpr = inflater.invoke("inflate").arg(resId).arg(viewGroup).arg(JExpr.FALSE)
-            JVar rootView = body.decl(viewType, "rootView", inflateExpr)
-            JVar holder = body.decl(vhClass, "holder", JExpr._new(vhClass).arg(rootView))
-            body.add(rootView.invoke("setTag").arg(holder)) // rootView.setTag(holder)
-            body._return(holder)
-        })()
-
-        // ViewHolder.from(Context context, View convertView, ViewGroup rootView)
-        ({
-            JMethod from = vhClass.method(JMod.PUBLIC | JMod.STATIC, vhClass, "from")
-            JVar context = from.param(contextType, "context")
-            JVar convertView = from.param(viewType, "convertView")
-            JVar viewGroup = from.param(viewGroupType, "viewGroup")
-
-            JBlock body = from.body()
-            JConditional cond = body._if(convertView.eq(JExpr._null()))
-            cond._then()._return(vhClass.staticInvoke("from").arg(context).arg(viewGroup))
-            cond._else()._return(JExpr.cast(vhClass, convertView.invoke("getTag")))
-        })()
-
-        // ViewHolder(View rootView)
-        JMethod ctr = vhClass.constructor(JMod.PUBLIC)
-        JVar rootView = ctr.param(viewType, "rootView")
-
-        JBlock body = ctr.body();
-        body.assign(JExpr._this().ref("view"), rootView)
-
-        Closure<Void> walk
-        walk = { Node element ->
-            def widgetId = element.attribute(androidNs.get("id"))
-            if (widgetId != null) {
-                def parts = widgetId.split('/') // like '@id+/name'
-                def name = parts[1]
-                def resClass = model.ref(parts[0] == "@android:id" ? "android.R.id" : "${pkg}.R.id")
-
-                JClass elementType = model.ref(qualifyViewClassName(element.name()))
-                vhClass.field(JMod.PUBLIC | JMod.FINAL, elementType, name)
-
-                // holder = (T)findViewById(R.id.name)
-                JInvocation findViewById = rootView.invoke("findViewById").arg(resClass.staticRef(name))
-                body.assign(JExpr._this().ref(name), castIfNeeded(elementType, viewType, findViewById))
-
-            }
-
-            element.children().each { walk(it) }
-        }
-
-        walk(layout)
-    }
-
-    model.build(javaSourceDir)
-}
-
-preBuild.dependsOn(task("generateViewHolders") << {
-    generateViewHolders(fileTree(dir: "src/main", include: "res/layout/*.xml"))
-})
