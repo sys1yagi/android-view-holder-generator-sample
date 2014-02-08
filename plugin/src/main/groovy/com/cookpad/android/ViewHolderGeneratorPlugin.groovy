@@ -9,6 +9,8 @@ import groovy.xml.Namespace
 
 
 public class ViewHolderGeneratorPlugin implements Plugin<Project> {
+    private static final def androidNamespace =  new Namespace("http://schemas.android.com/apk/res/android",  "android")
+
     @Override
     public void apply(final Project project) {
         project.logger.trace("Applying ${this.class} into $project")
@@ -77,11 +79,11 @@ public class ViewHolderGeneratorPlugin implements Plugin<Project> {
 
         def pkg = manifestXml.('@package').toString()
 
-        def androidNs = new Namespace("http://schemas.android.com/apk/res/android",  "android")
         def xmlParser = new XmlParser()
 
-        def javaSourceDir = project.file("$src/java")
-        javaSourceDir.mkdirs()
+        def targetSourceDir = project.file("${project.buildDir}/source/gen/")
+        targetSourceDir.mkdirs()
+        project.android.sourceSets.main.java.srcDir(targetSourceDir)
 
         def model = new JCodeModel()
 
@@ -116,7 +118,6 @@ public class ViewHolderGeneratorPlugin implements Plugin<Project> {
                 JFieldRef resId = model.ref("${pkg}.R.layout").staticRef(simpleName)
                 JVar inflater = body.decl(inflaterType, "inflater", inflaterType.staticInvoke("from").arg(context))
                 JInvocation inflateExpr = inflater.invoke("inflate").arg(resId).arg(viewGroup).arg(JExpr.FALSE)
-                body._ass
                 JVar rootView = body.decl(viewType, "rootView", inflateExpr)
                 JVar holder = body.decl(vhClass, "holder", JExpr._new(vhClass).arg(rootView))
                 body.add(rootView.invoke("setTag").arg(holder)) // rootView.setTag(holder)
@@ -146,7 +147,7 @@ public class ViewHolderGeneratorPlugin implements Plugin<Project> {
 
             Closure<Void> walk = null
             walk = { Node element ->
-                def widgetId = element.attribute(androidNs.get("id"))
+                def widgetId = element.attribute(androidNamespace.get("id"))
                 if (widgetId != null) {
                     def parts = widgetId.split('/') // like '@id+/name'
                     def name = parts[1]
@@ -167,6 +168,6 @@ public class ViewHolderGeneratorPlugin implements Plugin<Project> {
             walk(layout)
         }
 
-        model.build(javaSourceDir)
+        model.build(targetSourceDir)
     }
 }

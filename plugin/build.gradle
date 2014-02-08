@@ -22,7 +22,7 @@ configurations {
 
 install {
     repositories.mavenInstaller {
-        pom.groupId = group
+        pom.groupId = groupId
         pom.artifactId = artifactId
         pom.version = version
     }
