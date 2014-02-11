@@ -2,13 +2,13 @@ package com.cookpad.android
 
 import com.sun.codemodel.*
 import groovy.xml.Namespace
-import org.gradle.api.Project
+import org.gradle.api.logging.Logger;
 import org.gradle.api.file.FileCollection
 
 public class ViewHolderGenerator {
     private static final def androidNamespace =  new Namespace("http://schemas.android.com/apk/res/android",  "android")
 
-    private final Project project;
+    private final Logger logger;
     private final String pkg;
     private final JCodeModel model;
     private final JClass contextType;
@@ -16,8 +16,8 @@ public class ViewHolderGenerator {
     private final JClass viewGroupType;
     private final JClass inflaterType;
 
-    public ViewHolderGenerator(Project project, String pkg) {
-        this.project = project
+    public ViewHolderGenerator(Logger logger, String pkg) {
+        this.logger = logger
         this.pkg = pkg
         this.model = new JCodeModel()
 
@@ -51,14 +51,13 @@ public class ViewHolderGenerator {
     }
 
     public void generate(FileCollection xmlFiles) {
-        def t0 = System.currentTimeMillis()
         def xmlParser = new XmlParser()
 
         xmlFiles.each { File layoutXml ->
             def baseName = layoutXml.getName()
             def simpleName = baseName.split(/\./)[0]
             def className = camerize(simpleName) + "ViewHolder"
-            project.logger.info "Generating ${className}.java from $layoutXml"
+            logger.info "Generating ${className}.java from $layoutXml"
 
             def vhClass = model._class(JMod.PUBLIC | JMod.FINAL, pkg + ".generated.viewholder.$className", ClassType.CLASS)
 

@@ -32,7 +32,8 @@ public class ViewHolderGeneratorPlugin implements Plugin<Project> {
                         description = 'Generates ViewHolder classes from layout XMLs'
 
                         doLast {
-                            generateViewHolders(project)
+                            // TODO: do not depend on the magic string "src/main"
+                            generateViewHolders("src/main", project)
                         }
                     }
                     task.dependsOn(generateViewHoldersTask)
@@ -41,23 +42,23 @@ public class ViewHolderGeneratorPlugin implements Plugin<Project> {
         }
     }
 
-    public static void generateViewHolders(final Project project) {
+    private static String getPackageFromManifest(File manifestFile) {
+        def manifestXml = new XmlSlurper().parse(manifestFile)
+        return manifestXml.('@package')
+    }
+
+    public static void generateViewHolders(String appSrc, final Project project) {
         final t0 = System.currentTimeMillis()
 
-        // TODO: do not depend on the magic string "src/main"
-        def src = "src/main"
+        def xmlFiles = project.fileTree(dir: appSrc, include: "**/layout*/*.xml")
 
-        def xmlFiles = project.fileTree(dir: src, include: "**/layout*/*.xml")
-
-        def manifestXml = new XmlSlurper().parse(project.file("$src/AndroidManifest.xml"))
-
-        def pkg = manifestXml.('@package').toString()
+        def pkg = getPackageFromManifest(project.file("$appSrc/AndroidManifest.xml"))
 
         def targetSourceDir = project.file("${project.buildDir}/source/gen/")
         targetSourceDir.mkdirs()
         project.android.sourceSets.main.java.srcDir(targetSourceDir)
 
-        def gen = new ViewHolderGenerator(project, pkg);
+        def gen = new ViewHolderGenerator(project.logger, pkg);
         gen.generate(xmlFiles);
         gen.getCodeModel().build(targetSourceDir)
 
