@@ -1,5 +1,15 @@
+buildscript {
+    repositories {
+        mavenCentral()
+    }
+    dependencies {
+        classpath 'com.android.tools.build:gradle:0.8.+'
+        classpath project(':plugin')
+    }
+}
+
 apply plugin: 'android'
-apply plugin: com.cookpad.android.ViewHolderGeneratorPlugin
+apply plugin: 'viewholder-generator'
 
 dependencies {
     compile 'com.android.support:appcompat-v7:+'
@@ -27,4 +37,3 @@ android {
         staging {}
     }
 }
-
